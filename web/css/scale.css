@@ -1,0 +1,23 @@
+body {
+    background-color: white;
+}
+
+h1 {
+    color: maroon;
+    margin-left: 40px;
+}
+
+button {
+    background-color: #4CAF50; /* Green */
+    border: none;
+    color: white;
+    width: 100%;
+    padding: 30px 64px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 50px;
+    display: inline-block;
+}
+.listbox-item {
+    font-size: 50px;
+}

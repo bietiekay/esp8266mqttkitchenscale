@@ -1,0 +1,158 @@
+<html>
+<head>
+  <title>K&uuml;chenwaage</title>
+  <meta name="viewport" content="user-scalable=0">
+  <link rel="stylesheet" href="css/extended-listbox-min.css">
+  <link rel="stylesheet" href="css/scale.css">
+  <link rel="apple-touch-icon" sizes="57x57" href="fav/apple-icon-57x57.png">
+  <link rel="apple-touch-icon" sizes="60x60" href="fav/apple-icon-60x60.png">
+  <link rel="apple-touch-icon" sizes="72x72" href="fav/apple-icon-72x72.png">
+  <link rel="apple-touch-icon" sizes="76x76" href="fav/apple-icon-76x76.png">
+  <link rel="apple-touch-icon" sizes="114x114" href="fav/apple-icon-114x114.png">
+  <link rel="apple-touch-icon" sizes="120x120" href="fav/apple-icon-120x120.png">
+  <link rel="apple-touch-icon" sizes="144x144" href="fav/apple-icon-144x144.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="fav/apple-icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="fav/apple-icon-180x180.png">
+  <link rel="icon" type="image/png" sizes="192x192"  href="fav/android-icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="fav/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="fav/favicon-96x96.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="fav/favicon-16x16.png">
+  <link rel="manifest" href="fav/manifest.json">
+  <meta name="msapplication-TileColor" content="#ffffff">
+  <meta name="msapplication-TileImage" content="fav/ms-icon-144x144.png">
+  <meta name="theme-color" content="#ffffff">
+</head>
+
+<body>
+<script type="text/javascript" src="js/mqtt.min.js"></script>
+<script type="text/javascript" src="js/segment-display.js"></script>
+<script type="text/javascript" src="js/extended-listbox-min.js"></script>
+
+<script type="text/javascript">
+(function() {
+    var lastTouch = 0;
+    function preventZoom(e) {
+        var t2 = e.timeStamp;
+        var t1 = lastTouch || t2;
+        var dt = t2 - t1;
+        var fingers = e.touches.length;
+        lastTouch = t2;
+
+        if (!dt || dt >= 300 || fingers > 1) {
+            return;
+        }
+        resetPreventZoom();
+        e.preventDefault();
+        e.target.click();
+    }
+    function resetPreventZoom() {
+        lastTouch = 0;
+    }
+
+    document.addEventListener('touchstart', preventZoom, false);
+    document.addEventListener('touchmove', resetPreventZoom, false);
+})();
+ var dot = ".";
+  var display = new SegmentDisplay("display");
+  display.pattern         = "#####.";
+  display.cornerType      = 2;
+  display.displayType     = 9;
+  display.displayAngle    = 9;
+  display.digitHeight     = 20;
+  display.digitWidth      = 12;
+  display.digitDistance   = 2;
+  display.segmentWidth    = 3;
+  display.segmentDistance = 0.5;
+  display.colorOn         = "rgba(0, 0, 0, 0.9)";
+  display.colorOff        = "rgba(0, 0, 0, 0.03)";
+</script>
+
+  <div style="margin: auto; width: 864px; height: 300px; position: relative;">
+    <div style="position: relative;">
+      <canvas id="display" width="864px" height="300px"></canvas>
+    </div>
+    <div style="position: relative; align: center; width: 100%">
+      <button style="background-color: #4c59af;" onclick="addAnItem(String(display.value))">speichern</button>
+    </div>
+    <div style="position: relative; align: center;">
+        <div id="listbox" class="listbox-root" style="width: 851px;height: 660px;"></div>
+    </div>
+    <div>
+      <button style="width:33%;  background-color: #9a8b24; " onclick=cmnd("tare")>Tara</button>
+      <button style="width:33%;  background-color: #4CAF50; " onclick=cmnd("cal+")>Cal+</button>
+      <button style="width:33%;  background-color: #af4c4c; " onclick=cmnd("cal-")>Cal-</button>
+    </div>
+
+  </div>
+<script>
+var target = document.getElementById("listbox");
+
+var GlobalTextbox = new SingleSelectListBox(target, {
+getItems: function() {
+  return [];
+}
+});
+</script>
+
+<script>
+  var client = mqtt.connect("ws://mqttbroker:9001");
+  var previousvalue = 0.00;
+  client.subscribe("kitchen_scale/out");
+  display.setValue("     ");
+
+  function cmnd(command) {
+      client.publish("kitchen_scale/cmnd", command)
+  }
+
+  function addAnItem(name) {
+    var d = new Date();
+    var n = d.toLocaleTimeString();
+      GlobalTextbox.addItem("("+n+") | "+name+"g");
+      GlobalTextbox.moveItemToTop("("+n+") | "+name+"g");
+  }
+
+
+  function zeroFill( number, width )
+  {
+    if (number < 0)
+      number = number * -1;
+    width -= number.toString().length;
+    if ( width > 0 )
+    {
+      return new Array( width + (/\./.test( number ) ? 2 : 1) ).join( ' ' ) + number+dot;
+    }
+    return number + ""+dot; // always return a string
+  }
+
+  client.on("message", function (topic, payload) {
+    //console.log(zeroFill(parseFloat(payload).toFixed(2),7));
+    // check for previous value states
+    if (parseFloat(payload).toFixed(2) == 0)
+    {
+      if (previousvalue >= 10) {
+        // if its bigger or equal to 10
+        addAnItem(previousvalue);
+        console.log("adding" + previousvalue);
+        previousvalue = parseFloat(payload).toFixed(2);
+      }
+    }
+    if (parseFloat(payload).toFixed(2) >= 10) {
+      previousvalue = parseFloat(payload).toFixed(2);
+    }
+
+    if (dot == ".")
+      dot = " ";
+      else {
+        dot = ".";
+      }
+    if (parseFloat(payload) > 0)
+      display.setValue(" "+zeroFill(payload,4));
+    else {
+      display.setValue("-"+zeroFill(payload,4));
+    }
+  })
+
+  //client.publish("mqtt/demo", "hello world!")
+</script>
+</body>
+</html>
